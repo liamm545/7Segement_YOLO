@@ -11,10 +11,10 @@ img = './test_pic/6.png'
 detect_result = model.predict(img)
 
 # YOLO_Processor 선언
-segment_detector = YOLOProcessor()
+segment_detector = SegmentDetector()
 
 # Result of detection process
-result = segment_detector.process_detection(detect_result, threshold=0.65)
+result = segment_detector.process_detection(detect_result)
 
 print(result)
 
