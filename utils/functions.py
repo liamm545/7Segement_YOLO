@@ -1,5 +1,6 @@
 import cv2
 import numpy as np
+import statistics
 
 class SegmentDetector:
     def __init__(self):
@@ -27,14 +28,15 @@ class SegmentDetector:
         for conf, coor, cls, area in zip(conf_list, coor_list, cls_list, areas):
             if cls == 0.0: # '-' 일 경우
                 minus.append((conf, coor, cls))
-            elif cls == 1.0: # '.' 일 경
+            elif cls == 1.0: # '.' 일 경우
                 dot.append((conf, coor, cls))
             elif min_area <= area <= max_area and conf >= threshold:
                 filtered_vals.append((conf, coor, cls))
-
+        # print(filtered_vals)
+        # print(dot)
         return filtered_vals, dot, minus
 
-    def validate_minus_by_coordinates(self, minus_list, filtered_by_coordinates):
+    def filter_minus_by_coordinates(self, minus_list, filtered_by_coordinates):
         if not minus_list:
             return []
 
@@ -51,29 +53,33 @@ class SegmentDetector:
         else:
             return []
 
-    def filter_dots_by_coordinates(self, filtered_vals):
-        sorted_vals = sorted(filtered_vals, key=lambda x: x[1][0])
-        final_vals = []
+    def filter_dots_by_coordinates(self, dot_list, filtered_by_coordinates):
+        sorted_numbers = sorted(filtered_by_coordinates, key=lambda x: x[1][0])
+        valid_dots = []
 
-        if len(sorted_vals) == 0:
+        for dot in dot_list:
+            conf, coor, cls = dot
+            for i, (num_conf, num_coor, num_cls) in enumerate(sorted_numbers):
+                if i == len(sorted_numbers) - 1:
+                    break  # 마지막 숫자의 오른쪽에는 '.'이 오지 않
+
+                # 현재의 '.'이 현재 숫자와 다음 숫자 사이에 있는지 확인
+                if num_coor[0] + num_coor[2]/2 <= coor[0]+coor[3]/2 <= sorted_numbers[i + 1][1][0]:
+                    # print(num_coor)
+                    # print(num_coor[1] + num_coor[3] / 2)
+                    # print(num_coor[1] + num_coor[3])
+                    # print(coor)
+                    # `.`의 y값이 현재 숫자의 아래 중앙 부분에 위치하는지 확인
+                    if num_coor[1] <= coor[1] <= num_coor[1] + num_coor[3]:
+                        valid_dots.append(dot)
+                    break
+
+        # 여러 개의 '.' 중에서 신뢰도가 가장 높은 '.'을 선택
+        if valid_dots:
+            valid_dots.sort(key=lambda x: x[0], reverse=True)
+            return [valid_dots[0]]
+        else:
             return []
-
-        # Calculate average bottom y-coordinate (y + h)
-        avg_bottom_y = sum(item[1][1] + item[1][3] for item in sorted_vals) / len(sorted_vals)
-
-        for i, (conf, coor, cls) in enumerate(sorted_vals):
-            if cls == 1.0:  # if current class is '.'
-                prev_cls = sorted_vals[i - 1][2] if i > 0 else None
-                next_cls = sorted_vals[i + 1][2] if i < len(sorted_vals) - 1 else None
-
-                # Additional condition for '.': its bottom y-coordinate should be near the average bottom y-coordinate
-                if ((prev_cls and 2.0 <= prev_cls <= 11.0) or i == 0) and \
-                        ((next_cls and 2.0 <= next_cls <= 11.0) or i == len(sorted_vals) - 1) and \
-                        abs(coor[1] + coor[3] - avg_bottom_y) < 0.1 * avg_bottom_y:
-                    final_vals.append((conf, coor, cls))
-            else:
-                final_vals.append((conf, coor, cls))
-        return final_vals
 
     def filter_numbers_by_coordinates(self, filtered_by_area):
         if not filtered_by_area:
@@ -87,6 +93,7 @@ class SegmentDetector:
         avg_h = sum(h_values) / len(h_values)
 
         # 중심 y값 기준으로 선별 (평균 세그먼트 높이의 반 정도로 필터링)
+        # 따라서 실전에 사용할 때는 애초에 너무 기운 경우는 제외해야 됨
         filtered_by_y = [item for item in filtered_by_area if
                          abs(item[1][1] + item[1][3] / 2 - avg_y_center) < 0.5 * avg_h]
 
@@ -135,11 +142,12 @@ class SegmentDetector:
         filtered_by_coordinates = self.filter_numbers_by_coordinates(filtered_by_area)
 
         # '.', '-' 필터링
-        filtered_by_dots = self.filter_dots_by_coordinates(dot_list)
+        filtered_dot = self.filter_dots_by_coordinates(dot_list, filtered_by_coordinates)
+        filtered_minus = self.filter_minus_by_coordinates(minus_list, filtered_by_coordinates)
 
         final_filtered = []
 
-        for item in filtered_by_coordinates + filtered_by_dots + self.validate_minus_by_coordinates(minus_list, filtered_by_coordinates):
+        for item in filtered_by_coordinates + filtered_dot + filtered_minus:
             if item not in final_filtered:
                 final_filtered.append(item)
 
