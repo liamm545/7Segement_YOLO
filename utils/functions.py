@@ -12,7 +12,7 @@ class SegmentDetector:
 
     def filter_by_area(self, conf_list, coor_list, cls_list, areas, threshold, area_ratio):
         if not conf_list:
-            return [], []
+            return [], [], []
 
         max_conf_index = conf_list.index(max(conf_list))
         max_conf_area = areas[max_conf_index]
@@ -32,8 +32,7 @@ class SegmentDetector:
                 dot.append((conf, coor, cls))
             elif min_area <= area <= max_area and conf >= threshold:
                 filtered_vals.append((conf, coor, cls))
-        # print(filtered_vals)
-        # print(dot)
+
         return filtered_vals, dot, minus
 
     def filter_minus_by_coordinates(self, minus_list, filtered_by_coordinates):
