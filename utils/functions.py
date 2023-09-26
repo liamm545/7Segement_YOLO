@@ -123,7 +123,7 @@ class SegmentDetector:
 
         return final_filtered
 
-    def process_detection(self, model_apply, threshold=0.6, area_ratio=(0.8, 1.2)):
+    def process_detection(self, model_apply, threshold=0.6, area_ratio=(0.7, 1.5)):
         detect_result = model_apply[0].boxes
 
         # 자동으로 conf 순서대로 맞춰져있음
